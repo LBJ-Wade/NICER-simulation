@@ -1,4 +1,3 @@
-# CUDA_FLAGS=--gpu-architecture=sm_50 --relocatable-device-code=true
 CUDA_FLAGS=--gpu-architecture=sm_50 -I../include
 CFLAGS=-Wall
 NVCC=/usr/local/cuda/bin/nvcc $(CUDA_FLAGS) --compiler-options $(CFLAGS)
