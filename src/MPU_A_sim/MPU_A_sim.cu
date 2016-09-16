@@ -181,5 +181,14 @@ int main()
 	init.ip = null_in;
 	init.op = dummy_out;
 	
-	null_in->step = 2147483647;	/* Shouldn't reach this */
+	null_in->step = 2147483647;	/* As big as we can go, better not ask for more steps */
+	
+	for( i = 0; i < NUM_MPU; i+=1 )
+		for() j = 0; j < DETECTORS_PER_MPU; j+=1 )
+			for( k = 0; k < SHAPERS_PER_DETECTOR; k+=1 )
+				config[i][j][k] = init;
+	
+	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 10000000 );
+	cudaDeviceSynchronize();
+	
 }
