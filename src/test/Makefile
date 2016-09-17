@@ -1,4 +1,4 @@
-CUDA_FLAGS=--gpu-architecture=sm_50 -I../include
+CUDA_FLAGS=--gpu-architecture=sm_50 --resource-usage -I../include
 CFLAGS=-Wall
 NVCC=/usr/local/cuda/bin/nvcc $(CUDA_FLAGS) --compiler-options $(CFLAGS)
 
