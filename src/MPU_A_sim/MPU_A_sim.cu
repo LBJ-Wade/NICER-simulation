@@ -55,7 +55,7 @@ __managed__ struct configuration {
 
 __shared__ float y[SHAPERS_PER_MPU];	/* Shaper outputs are shared within a warp */
 
-__global__ void run_shapers( int steps_to_do )
+__global__ void run_shapers( int steps_to_do, unsigned int *warpspeed_state )
 {
 	int detector = threadIdx.x/4;
 	int shaper = threadIdx.x%4;
@@ -91,14 +91,14 @@ __global__ void run_shapers( int steps_to_do )
 	float charge = 0.0;
 	int next_input = ip->step;
 	
-	warpspeed_initialize( warpspeed_history );
+	warpspeed_initialize( warpspeed_state );
 	
-	mpu == 3 && threadIdx.x == 5 && printf( "Init\n" );
-	mpu == 3 && threadIdx.x == 5 && printf( "steps to do %d\n", steps_to_do );
+//	mpu == 3 && threadIdx.x == 5 && printf( "Init\n" );
+//	mpu == 3 && threadIdx.x == 5 && printf( "steps to do %d\n", steps_to_do );
 		
 	for( step = 0; step < steps_to_do; step += 1 ) {
-		mpu == 3 && threadIdx.x == 5 && printf( "step %d\n", step );
-		mpu == 3 && threadIdx.x == 5 && printf( "next %d\n", next_input );		
+//		mpu == 3 && threadIdx.x == 5 && printf( "step %d\n", step );
+//		mpu == 3 && threadIdx.x == 5 && printf( "next %d\n", next_input );		
 		if( step == next_input ) {
 			charge = ip++->charge;
 			next_input = ip->step;
@@ -119,7 +119,7 @@ __global__ void run_shapers( int steps_to_do )
 		x5 = x6;
 		x6 = fb;
 		
-		mpu == 3 && threadIdx.x == 5 && printf( "sync\n" );
+//		mpu == 3 && threadIdx.x == 5 && printf( "sync\n" );
 		__syncthreads();
 		
 		switch( state ) {
@@ -152,12 +152,12 @@ __global__ void run_shapers( int steps_to_do )
 			break;
 			
 		}
-		mpu == 3 && threadIdx.x == 5 && printf( "end switch\n" );		
+//		mpu == 3 && threadIdx.x == 5 && printf( "end switch\n" );		
 	}
 	
 	mpu == 3 && threadIdx.x == 5 && printf( "steps done %d\n", step );
 		
-	warpspeed_save( warpspeed_history );
+	warpspeed_save( warpspeed_state );
 	
 	c->x[0] = x1;
 	c->x[1] = x2;
@@ -175,6 +175,7 @@ __managed__ struct event_output dummy_out[1];
 int main()
 {
 	struct configuration init;
+	unsigned int *random_state = warpspeed_seed( NUM_MPU, 100951 );
 	int i, j, k;
 	
 	for( i = 0; i < SHAPER_ORDER+1; i+=1 ){
@@ -203,7 +204,7 @@ int main()
 			for( k = 0; k < SHAPERS_PER_DETECTOR; k+=1 )
 				config[i][j][k] = init;
 	
-	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 1000000000 );
+	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 10000000, random_state);
 	cudaDeviceSynchronize();
 	
 }
