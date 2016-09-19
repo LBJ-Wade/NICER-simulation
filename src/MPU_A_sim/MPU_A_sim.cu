@@ -8,7 +8,8 @@ Note that to use the warpspeed random number generator, SHAPERS_PER_MPU
 must be 32.
 */
 
-#define NUM_MPU 7
+// #define NUM_MPU 7
+#define NUM_MPU (2*7)
 #define DETECTORS_PER_MPU 8
 #define SHAPERS_PER_DETECTOR 4
 #define SHAPERS_PER_MPU (SHAPERS_PER_DETECTOR * DETECTORS_PER_MPU)
@@ -155,7 +156,7 @@ __global__ void run_shapers( int steps_to_do, unsigned int *warpspeed_state )
 //		mpu == 3 && threadIdx.x == 5 && printf( "end switch\n" );		
 	}
 	
-	mpu == 3 && threadIdx.x == 5 && printf( "steps done %d\n", step );
+	mpu == 0 && threadIdx.x == 0 && printf( "steps done %d\n", step );
 		
 	warpspeed_save( warpspeed_state );
 	
@@ -204,7 +205,7 @@ int main()
 			for( k = 0; k < SHAPERS_PER_DETECTOR; k+=1 )
 				config[i][j][k] = init;
 	
-	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 10000000, random_state);
+	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 20000000, random_state);
 	cudaDeviceSynchronize();
 	
 }
