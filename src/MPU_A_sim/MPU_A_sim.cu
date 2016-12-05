@@ -9,7 +9,7 @@ must be 32.
 */
 
 // #define NUM_MPU 7
-#define NUM_MPU (2*7)
+#define NUM_MPU (20*7)
 #define DETECTORS_PER_MPU 8
 #define SHAPERS_PER_DETECTOR 4
 #define SHAPERS_PER_MPU (SHAPERS_PER_DETECTOR * DETECTORS_PER_MPU)
@@ -178,6 +178,7 @@ int main()
 	struct configuration init;
 	unsigned int *random_state = warpspeed_seed( NUM_MPU, 100951 );
 	int i, j, k;
+	cudaError_t code;
 	
 	for( i = 0; i < SHAPER_ORDER+1; i+=1 ){
 		init.cout[i] = 0.1;
@@ -205,7 +206,9 @@ int main()
 			for( k = 0; k < SHAPERS_PER_DETECTOR; k+=1 )
 				config[i][j][k] = init;
 	
-	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 20000000, random_state);
-	cudaDeviceSynchronize();
-	
+	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 10000000, random_state);
+	code = cudaDeviceSynchronize();
+	printf( "%s\n", cudaGetErrorString(code));
+	cudaDeviceReset();
+
 }
