@@ -8,8 +8,8 @@ Note that to use the warpspeed random number generator, SHAPERS_PER_MPU
 must be 32.
 */
 
-// #define NUM_MPU 7
-#define NUM_MPU (20*7)
+#define NUM_MPU 7
+// #define NUM_MPU (20*7)
 #define DETECTORS_PER_MPU 8
 #define SHAPERS_PER_DETECTOR 4
 #define SHAPERS_PER_MPU (SHAPERS_PER_DETECTOR * DETECTORS_PER_MPU)
