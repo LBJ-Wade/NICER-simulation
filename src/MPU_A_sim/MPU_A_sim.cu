@@ -1,15 +1,13 @@
-#include "warpspeed.cuh"
+#include <curand_kernel.h>
 #include <math.h>
 #include <stdio.h>
 
 /*
 NICER's vital stats.
-Note that to use the warpspeed random number generator, SHAPERS_PER_MPU 
-must be 32.
 */
 
-#define NUM_MPU 7
-// #define NUM_MPU (20*7)
+// #define NUM_MPU 7
+#define NUM_MPU (20*7)
 #define DETECTORS_PER_MPU 8
 #define SHAPERS_PER_DETECTOR 4
 #define SHAPERS_PER_MPU (SHAPERS_PER_DETECTOR * DETECTORS_PER_MPU)
@@ -54,9 +52,14 @@ __managed__ struct configuration {
 	
 } config[NUM_MPU][DETECTORS_PER_MPU][SHAPERS_PER_DETECTOR];
 
+/*
+We share shaper outputs so that a bipolar shaper can capture its
+unipolar partner's output when it triggers.
+*/
+
 __shared__ float y[SHAPERS_PER_MPU];	/* Shaper outputs are shared within a warp */
 
-__global__ void run_shapers( int steps_to_do, unsigned int *warpspeed_state )
+__global__ void run_shapers( int steps_to_do )
 {
 	int detector = threadIdx.x/4;
 	int shaper = threadIdx.x%4;
@@ -92,7 +95,13 @@ __global__ void run_shapers( int steps_to_do, unsigned int *warpspeed_state )
 	float charge = 0.0;
 	int next_input = ip->step;
 	
-	warpspeed_initialize( warpspeed_state );
+	unsigned long long curand_offset = 0; // TODO update this
+	curandState_t curand_state;
+	curand_init ( 100951,
+		(mpu * DETECTORS_PER_MPU + detector) * SHAPERS_PER_DETECTOR
+		 + shaper,
+		curand_offset,
+		&curand_state );
 	
 //	mpu == 3 && threadIdx.x == 5 && printf( "Init\n" );
 //	mpu == 3 && threadIdx.x == 5 && printf( "steps to do %d\n", steps_to_do );
@@ -105,7 +114,8 @@ __global__ void run_shapers( int steps_to_do, unsigned int *warpspeed_state )
 			next_input = ip->step;
 		}
 		
-		u = charge + noise * ( (float) warpspeed_urand() - 2147483648.0 );
+		u = charge + noise * 
+			( (float) curand( &curand_state) - 2147483648.0 );
 		
 		y[threadIdx.x] = yt = 
 			cout0*u + cout1*x1 + cout2*x2 +cout3*x3 + cout4*x4 + 
@@ -156,10 +166,8 @@ __global__ void run_shapers( int steps_to_do, unsigned int *warpspeed_state )
 //		mpu == 3 && threadIdx.x == 5 && printf( "end switch\n" );		
 	}
 	
-	mpu == 0 && threadIdx.x == 0 && printf( "steps done %d\n", step );
-		
-	warpspeed_save( warpspeed_state );
-	
+//	mpu == 0 && threadIdx.x == 0 && printf( "steps done %d\n", step );
+			
 	c->x[0] = x1;
 	c->x[1] = x2;
 	c->x[2] = x3;
@@ -176,7 +184,6 @@ __managed__ struct event_output dummy_out[1];
 int main()
 {
 	struct configuration init;
-	unsigned int *random_state = warpspeed_seed( NUM_MPU, 100951 );
 	int i, j, k;
 	cudaError_t code;
 	
@@ -201,14 +208,19 @@ int main()
 	
 	null_in->step = 2147483647;	/* As big as we can go, better not ask for more steps */
 	
+	const int steps_per_segment = 10000;
+	const int segments = 1000;
+	
 	for( i = 0; i < NUM_MPU; i+=1 )
 		for( j = 0; j < DETECTORS_PER_MPU; j+=1 )
 			for( k = 0; k < SHAPERS_PER_DETECTOR; k+=1 )
 				config[i][j][k] = init;
 	
-	run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( 10000000, random_state);
-	code = cudaDeviceSynchronize();
-	printf( "%s\n", cudaGetErrorString(code));
+	for( i = 0; i < segments; i+=1 ) {
+		run_shapers<<<NUM_MPU,SHAPERS_PER_MPU>>>( steps_per_segment );
+		code = cudaDeviceSynchronize();
+		if(code) printf( "%s\n", cudaGetErrorString(code));
+	}
 	cudaDeviceReset();
 
 }
