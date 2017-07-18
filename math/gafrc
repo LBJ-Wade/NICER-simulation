@@ -1,0 +1,4 @@
+(component-library "../../nicer-mpu/Circuits/MPU-FM/Schematic")
+(component-library ".")
+(source-library ".")
+(always-promote-attributes '("refdes"))
