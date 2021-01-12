@@ -23,11 +23,11 @@ __global__ void events (
 	double *bcout, double *bcback, 	// bipolar shaper parameters
 	double noise,			// electrons/step
 	int when,			// step at which pulse happens
-	int pulse,			// pulse height, electrons
+	double pulse,			// pulse height, electrons
 	int steps, 			// steps of simulation
 	double thresh,			// trigger threshold
 	double *ft,			// forced trigger sample
-	int *tz,			// time of zero crossing
+	double *tz,			// time of zero crossing
 	double *ph			// pulse height
 	) {
 	
@@ -52,7 +52,7 @@ __global__ void events (
 	double ux4 = 0.0;
 	double ux5 = 0.0;
 	double ux6 = 0.0;
-	double uy, ufb;
+	double uy, ufb, uylast;
 	double bcout0 = bcout[0];
 	double bcout1 = bcout[1];
 	double bcout2 = bcout[2];
@@ -72,7 +72,7 @@ __global__ void events (
 	double bx4 = 0.0;
 	double bx5 = 0.0;
 	double bx6 = 0.0;
-	double by, bfb;
+	double by, bfb, bylast;
 	
 	int trigger = 0;
 	
@@ -115,15 +115,29 @@ __global__ void events (
 		bx5 = bx6;
 		bx6 = bfb;
 		
+	// do the forced trigger just before the event
 		if( i == when - 1 ) ft[ thread ] = uy;
 		
 		if ( i >= 0 ) {
-			if( trigger && by < 0.0 ) {
-				tz[ thread ] = i;
-				ph[ thread] = uy;
-				trigger = 0;
+			if( trigger && by < 0.0 ) {	// saw zx
+			
+				int ilast = i - 1;
+				double itz = 	// interpolate zx time
+					( i * bylast - ilast * by ) /
+					(bylast - by );
+				tz[ thread ] = itz;
+				
+				ph[ thread] = 	// interpolate filter output
+					( i - itz ) * uylast + 
+					( itz - ilast) * uy;
+					
+				trigger = 0;	// done with this trigger
+				
 			} else if( by > thresh ) trigger = 1;
 		}
+		
+		uylast = uy;
+		bylast = by;
 	}
 }
  
