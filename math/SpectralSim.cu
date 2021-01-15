@@ -18,12 +18,14 @@ extern "C" {
 
 #define SETTLE 200
 
-__global__ void events ( 
+__global__ void SpectralSim ( 
 	double *ucout, double *ucback, 	// unipolar shaper parameters
 	double *bcout, double *bcback, 	// bipolar shaper parameters
-	double noise,			// electrons/step
+	long long seed,			// RNG seed
+	double ibias,			// electrons/step
+	double noise,			// electrons/step RMS
 	int when,			// step at which pulse happens
-	double pulse,			// pulse height, electrons
+	double *pulse,			// pulse height, electrons
 	int steps, 			// steps of simulation
 	double thresh,			// trigger threshold
 	double *ft,			// forced trigger sample
@@ -76,13 +78,22 @@ __global__ void events (
 	
 	int trigger = 0;
 	
+/*
+The preamp integrates while the filters differentiate: we skip this detail
+in the linear model. However, most of the amplifier noise comes from the
+stages between the integration and differentiation. So, simplistically, we model that as Gaussian white noise and numerically differentiate.
+*/
+	
+	double grn = 0;		// This step's Gaussian random number
+	double psgrn = 0;	// The one from the previous step
+	
 	ft[ thread ] = 0;
 	tz[ thread ] = 0;
 	ph[ thread ] = 0;
 	
 	int i;
 
-	curand_init ( 100951,
+	curand_init ( seed,
 		thread,
 		0,
 		& curand_state );
@@ -90,8 +101,12 @@ __global__ void events (
 	for ( i = -SETTLE; i < steps; i += 1) {
 		
 		double u = 0;		// input
-		if ( i == when ) u = pulse;
-		u += curand_poisson ( & curand_state, noise );
+		if ( i == when ) u = pulse[ thread ];
+		u += curand_poisson ( & curand_state, ibias );
+		grn = curand_normal( &curand_state );
+		u += noise * ( grn - psgrn );
+		psgrn = grn;
+		
 
 		uy = ucout0*u + ucout1*ux1 + ucout2*ux2 + ucout3*ux3 +
 			ucout4*ux4 + ucout5*ux5 + ucout6*ux6;
